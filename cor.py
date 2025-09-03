@@ -4,11 +4,8 @@ import plotly.figure_factory as ff
 import streamlit as st
 import pandas as pd
 
-import streamlit as st
-import pandas as pd
-
 # Caminho do arquivo Excel
-caminho = r"C:\Users\Usuário\Downloads\Cópia de Resultados Finais - Projeto Congelamento JBS.xlsx"
+caminho = "https://raw.githubusercontent.com/abibernardo/consultoria_2S2025/main/C%C3%B3pia%20de%20Resultados%20Finais%20-%20Projeto%20Congelamento%20JBS.xlsx"
 
 # Leitura da planilha "Alcatra"
 df = pd.read_excel(caminho, sheet_name="Alcatra")
