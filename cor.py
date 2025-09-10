@@ -3,6 +3,9 @@ import plotly.express as px
 import plotly.figure_factory as ff
 import streamlit as st
 import pandas as pd
+from statsmodels.multivariate.manova import MANOVA
+from statsmodels.formula.api import ols
+from statsmodels.stats.anova import anova_lm
 
 # Caminho do arquivo Excel
 caminho = "https://raw.githubusercontent.com/abibernardo/consultoria_2S2025/main/C%C3%B3pia%20de%20Resultados%20Finais%20-%20Projeto%20Congelamento%20JBS.xlsx"
@@ -121,14 +124,14 @@ del num_cols[6:15]
 corr = df[respostas + num_cols].corr()
 
 # Pega só as correlações das respostas com as demais variáveis
-corr_focus = corr.loc[respostas, num_cols]
+#corr_focus = corr.loc[respostas, num_cols]
 
 # Cria heatmap
 heatmap = ff.create_annotated_heatmap(
-    z=corr_focus.values,
-    x=list(corr_focus.columns),
-    y=list(corr_focus.index),
-    annotation_text=corr_focus.round(2).values,
+    z=corr.values,
+    x=list(corr.columns),
+    y=list(corr.index),
+    annotation_text=corr.round(2).values,
     colorscale="RdBu",
     showscale=True,
     reversescale=True
@@ -145,3 +148,31 @@ for var in variaveis:
                  title=f"Distribuição de {var} por Grupo",
                  points="all")
     st.plotly_chart(fig, use_container_width=True)"""
+
+### MANOVA
+
+# Variáveis dependentes
+y = df[["MÉDIA a*", "MÉDIA b*", "MÉDIA L*"]]
+
+# Fator independente
+x = df["GRUPO"]
+
+# Montando a fórmula: "var1 + var2 + var3 ~ GRUPO"
+formula = "Q('MÉDIA a*') + Q('MÉDIA b*') + Q('MÉDIA L*') ~ GRUPO"
+
+manova = MANOVA.from_formula(formula, data=df)
+# Resultados da MANOVA
+resultado = manova.mv_test()
+
+st.subheader("📊 MANOVA - Teste Multivariado")
+st.text(str(resultado))
+
+## ANOVAS univariadas
+
+
+st.subheader("📑 ANOVAs univariadas (post-hoc)")
+for var in ["MÉDIA a*", "MÉDIA b*", "MÉDIA L*"]:
+    modelo = ols(f"Q('{var}') ~ GRUPO", data=df).fit()
+    anova_res = anova_lm(modelo)
+    st.text(f"ANOVA para {var}:")
+    st.dataframe(anova_res.round(3))
