@@ -27,7 +27,7 @@ df["MATURAÇÃO "] = df["MATURAÇÃO "].replace({
     "41 dias": "entre 38 e 41 dias"
 })
 df = df.rename(columns={'MATURAÇÃO ': 'MATURACAO'})
-
+df = df[(df["MÉDIA a*"] <= 95) & (df["MÉDIA L*"] <= 100)]  # EXCLUINDO OUTLIARS!!!!!!!!
 
 # Configuração da página
 st.set_page_config(page_title="Análise de coloração - Alcatra", layout="wide")
