@@ -8,17 +8,30 @@ from scipy.stats import chi2
 from statsmodels.multivariate.manova import MANOVA
 from statsmodels.formula.api import ols
 from statsmodels.stats.anova import anova_lm
-
+import plotly.express as px
+import plotly.graph_objects as go
+import statsmodels.api as sm
 # Caminho do arquivo Excel
 caminho = "https://raw.githubusercontent.com/abibernardo/consultoria_2S2025/main/C%C3%B3pia%20de%20Resultados%20Finais%20-%20Projeto%20Congelamento%20JBS.xlsx"
 
 # Leitura da planilha "Alcatra"
 df = pd.read_excel(caminho, sheet_name="Alcatra")
-#df.rename(columns={'MATURAÇÃO': 'MATURACAO'}, inplace=True)
+
+# faz os agrupamentos
+df["MATURAÇÃO "] = df["MATURAÇÃO "].replace({
+    "19 dias (adiant. 17 dias)": "entre 17 e 19 dias",
+    "19 dias ": "entre 17 e 19 dias",
+    "28 dias ": "entre 28 e 29 dias",
+    "29 dias ": "entre 28 e 29 dias",
+    "38 dias ": "entre 38 e 41 dias",
+    "41 dias": "entre 38 e 41 dias"
+})
+df = df.rename(columns={'MATURAÇÃO ': 'MATURACAO'})
+
 
 # Configuração da página
 st.set_page_config(page_title="Análise de coloração - Alcatra", layout="wide")
-
+st.dataframe(df)
 option = st.selectbox(
     " ",
     ("Análise Exploratória", "Modelagem"),
@@ -115,7 +128,7 @@ if option == 'Análise Exploratória':
     for var in variaveis:
         fig = px.box(
             df,
-            x="MATURAÇÃO ",
+            x="MATURACAO",
             y=var,
             color="GRUPO",
             facet_col="GRUPO",
@@ -263,3 +276,38 @@ elif option == 'Modelagem':
 
 
 
+
+
+    # Renomeando a coluna de maturação para não ter espaço
+
+    # Fórmula incluindo GRUPO e tempo de maturação
+    formula = "Q('MÉDIA a*') + Q('MÉDIA b*') + Q('MÉDIA L*') ~ GRUPO + MATURACAO"
+
+    manova = MANOVA.from_formula(formula, data=df)
+    resultado = manova.mv_test()
+
+
+    def parse_manova_table(mv_test_res):
+        """Formata a saída da MANOVA/MANCOVA em DataFrame"""
+        rows = []
+        for effect, res in mv_test_res.results.items():
+            stat_table = res["stat"]
+            for test in stat_table.index:
+                row = stat_table.loc[test]
+                rows.append({
+                    "Efeito": effect,
+                    "Estatística": test,
+                    "Valor": round(row["Value"], 4),
+                    "Num DF": int(row["Num DF"]),
+                    "Den DF": int(row["Den DF"]),
+                    "F": round(row["F Value"], 4),
+                    "p-valor": "<0.0001" if row["Pr > F"] < 1e-4 else round(row["Pr > F"], 4)
+                })
+        return pd.DataFrame(rows)
+
+
+    # Gera a tabela formatada
+    manova_df = parse_manova_table(resultado)
+
+    st.subheader("📊 Resultados da MANCOVA (testando tempo de maturação *ALTERADO PARA RECORTES*)")
+    st.dataframe(manova_df, use_container_width=True)
