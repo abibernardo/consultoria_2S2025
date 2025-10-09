@@ -7,12 +7,13 @@ import pandas as pd
 from scipy.stats import chi2
 from statsmodels.multivariate.manova import MANOVA
 from statsmodels.formula.api import ols
+from scipy.stats import shapiro, levene, probplot
 from statsmodels.stats.anova import anova_lm
 import plotly.express as px
 import plotly.graph_objects as go
 import statsmodels.api as sm
 # Caminho do arquivo Excel
-caminho = "https://raw.githubusercontent.com/abibernardo/consultoria_2S2025/main/C%C3%B3pia%20de%20Resultados%20Finais%20-%20Projeto%20Congelamento%20JBS.xlsx"
+caminho = "https://raw.githubusercontent.com/abibernardo/consultoria_2S2025/main/Resultados%20Finais%20-%20Projeto%20Congelamento%20JBS%20(1).xlsx"
 
 # Leitura da planilha "Alcatra"
 df = pd.read_excel(caminho, sheet_name="Alcatra")
@@ -27,7 +28,6 @@ df["MATURAÇÃO "] = df["MATURAÇÃO "].replace({
     "41 dias": "entre 38 e 41 dias"
 })
 df = df.rename(columns={'MATURAÇÃO ': 'MATURACAO'})
-df = df[(df["MÉDIA a*"] <= 95) & (df["MÉDIA L*"] <= 100)]  # EXCLUINDO OUTLIARS!!!!!!!!
 
 # Configuração da página
 st.set_page_config(page_title="Análise de coloração - Alcatra", layout="wide")
@@ -274,7 +274,95 @@ elif option == 'Modelagem':
         st.text(f"ANOVA para {var}:")
         st.dataframe(anova_res.round(3))
 
+        # Análise dos resíduos
+        # ----------------------
+        residuos = modelo.resid
+        ajustados = modelo.fittedvalues
 
+        st.markdown(f"### 🔍 Análise dos resíduos – {var}")
+
+
+        # 2. QQ-plot (gráfico de normalidade)
+        (osm, osr), (slope, intercept, r) = probplot(residuos, dist="norm")
+        fig_qq = go.Figure()
+        fig_qq.add_trace(go.Scatter(x=osm, y=osr, mode='markers', name='Resíduos'))
+        fig_qq.add_trace(go.Scatter(
+            x=osm, y=slope * np.array(osm) + intercept,
+            mode='lines', name='Ajuste Normal', line=dict(color='red')
+        ))
+        fig_qq.update_layout(
+            title=f"QQ-Plot dos Resíduos ({var})",
+            xaxis_title="Quantis teóricos (Normal)",
+            yaxis_title="Quantis dos resíduos"
+        )
+        st.plotly_chart(fig_qq, use_container_width=True)
+
+        # 3. Teste de normalidade (Shapiro-Wilk)
+        shapiro_stat, shapiro_p = shapiro(residuos)
+        st.write(f"**Teste de Shapiro-Wilk (normalidade):** W = {shapiro_stat:.4f}, p-valor = {shapiro_p:.4f}")
+        if shapiro_p < 0.05:
+            st.warning("Os resíduos não seguem distribuição normal (p < 0.05).")
+        else:
+            st.success("Os resíduos não diferem significativamente da normalidade (p ≥ 0.05).")
+
+        # 4. Teste de homocedasticidade (Levene)
+        grupos = [residuos[df["GRUPO"] == g] for g in df["GRUPO"].unique()]
+        lev_stat, lev_p = levene(*grupos)
+        st.write(f"**Teste de Levene (homocedasticidade):** estatística = {lev_stat:.4f}, p-valor = {lev_p:.4f}")
+        if lev_p < 0.05:
+            st.warning("Variâncias diferentes entre grupos (p < 0.05).")
+        else:
+            st.success("Homogeneidade de variâncias não rejeitada (p ≥ 0.05).")
+
+        st.divider()
+
+    st.title("Transformando a* (transformação de raiz quadrada)")
+    df["sqrt_a"] = np.sqrt(df["MÉDIA a*"] - df["MÉDIA a*"].min() + 1)
+    modelo = ols(f"Q('sqrt_a') ~ GRUPO", data=df).fit()
+    anova_res = anova_lm(modelo)
+    st.text(f"ANOVA para a* transformada:")
+    st.dataframe(anova_res.round(3))
+
+    # Análise dos resíduos
+    # ----------------------
+    residuos = modelo.resid
+    ajustados = modelo.fittedvalues
+
+    st.markdown(f"### 🔍 Análise dos resíduos – a* transformado")
+
+    # 2. QQ-plot (gráfico de normalidade)
+    (osm, osr), (slope, intercept, r) = probplot(residuos, dist="norm")
+    fig_qq = go.Figure()
+    fig_qq.add_trace(go.Scatter(x=osm, y=osr, mode='markers', name='Resíduos'))
+    fig_qq.add_trace(go.Scatter(
+        x=osm, y=slope * np.array(osm) + intercept,
+        mode='lines', name='Ajuste Normal', line=dict(color='red')
+    ))
+    fig_qq.update_layout(
+        title=f"QQ-Plot dos Resíduos ({var})",
+        xaxis_title="Quantis teóricos (Normal)",
+        yaxis_title="Quantis dos resíduos"
+    )
+    st.plotly_chart(fig_qq, use_container_width=True)
+
+    # 3. Teste de normalidade (Shapiro-Wilk)
+    shapiro_stat, shapiro_p = shapiro(residuos)
+    st.write(f"**Teste de Shapiro-Wilk (normalidade):** W = {shapiro_stat:.4f}, p-valor = {shapiro_p:.4f}")
+    if shapiro_p < 0.05:
+        st.warning("Os resíduos não seguem distribuição normal (p < 0.05).")
+    else:
+        st.success("Os resíduos não diferem significativamente da normalidade (p ≥ 0.05).")
+
+    # 4. Teste de homocedasticidade (Levene)
+    grupos = [residuos[df["GRUPO"] == g] for g in df["GRUPO"].unique()]
+    lev_stat, lev_p = levene(*grupos)
+    st.write(f"**Teste de Levene (homocedasticidade):** estatística = {lev_stat:.4f}, p-valor = {lev_p:.4f}")
+    if lev_p < 0.05:
+        st.warning("Variâncias diferentes entre grupos (p < 0.05).")
+    else:
+        st.success("Homogeneidade de variâncias não rejeitada (p ≥ 0.05).")
+
+    st.divider()
 
 
 
