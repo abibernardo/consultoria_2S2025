@@ -369,7 +369,8 @@ elif option == 'Modelagem':
     # Renomeando a coluna de maturação para não ter espaço
 
     # Fórmula incluindo GRUPO e tempo de maturação
-    formula = "Q('MÉDIA a*') + Q('MÉDIA b*') + Q('MÉDIA L*') ~ GRUPO + MATURACAO"
+    formula = "Q('MÉDIA a*') + Q('MÉDIA b*') + Q('MÉDIA L*') ~ GRUPO * MATURACAO"
+
 
     manova = MANOVA.from_formula(formula, data=df)
     resultado = manova.mv_test()
@@ -399,3 +400,27 @@ elif option == 'Modelagem':
 
     st.subheader("📊 Resultados da MANCOVA (testando tempo de maturação *ALTERADO PARA RECORTES*)")
     st.dataframe(manova_df, use_container_width=True)
+
+    for var in ["MÉDIA a*", "MÉDIA b*", "MÉDIA L*"]:
+        fig = px.line(
+            df,
+            x="MATURACAO",
+            y=var,
+            color="GRUPO",
+            markers=True,
+            title=f"Interação GRUPO × MATURAÇÃO para {var}",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    for nivel in df["MATURACAO"].unique():
+        subset = df[df["MATURACAO"] == nivel]
+        formula = "Q('MÉDIA a*') + Q('MÉDIA b*') + Q('MÉDIA L*') ~ GRUPO"
+        manova = MANOVA.from_formula(formula, data=subset)
+        st.write(f"--- MANOVA para maturação {nivel} ---")
+        st.dataframe(parse_manova_table(manova.mv_test()))
+
+    for var in ["MÉDIA a*", "MÉDIA b*", "MÉDIA L*"]:
+        modelo = ols(f"Q('{var}') ~ GRUPO * MATURACAO", data=df).fit()
+        anova_res = anova_lm(modelo)
+        st.write(f"ANOVA bifatorial para {var}")
+        st.dataframe(anova_res.round(3))
